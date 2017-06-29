@@ -93,6 +93,7 @@ struct YPR {
   double roll;  // roll
   double pitch; // pitch
   double yaw;   // yaw
+  double mathAngle;
 };
 
 
@@ -110,7 +111,7 @@ Waypoint wp;
 MPU9250 imu;
 Kalman kalmanRoll;
 Kalman kalmanPitch;
-Kalman kalmanCompass;
+Kalman kalmanYaw;
 uint32_t timer;
 YPR ypr;
 
@@ -120,19 +121,32 @@ void setup() {
   // シリアル通信(bps)
   Serial.begin(SerialBPS);
   gpsSerial.begin(gpsSerialBPS);
-
+  
   // 1PPSピンモード(READ)
   pinMode(PPS, INPUT);
 
+  // MPU9250初期化
+  imu.initialize();
+  imu.setOffsetMagnet(18.49, 21.37, -54.14);
+  imu.getSensor();
+  kalmanPitch.setAngle(imu.pitch);
+  kalmanRoll.setAngle(imu.roll);
+  ypr.mathAngle = imu.compass2mathAngle();
+  kalmanYaw.setAngle(ypr.mathAngle);
+  timer = micros();
+
   //MsTimer2::set(1000, getGPS);
+  //MsTimer2::set(100, getYPR);
   MsTimer2::set(500, calcWaypoint);
   MsTimer2::start();
 }
 
 
 void loop() {
-  getGPS(); // GPS取得
-  
+  //getGPS(); // GPS取得
+  //getYPR(); // Yaw, Roll Pitch取得
+
+  /*
   // Debug
   if (digitalRead(PPS) == LOW) {
     //calcWaypoint();  // Waypoint計算
@@ -149,7 +163,17 @@ void loop() {
     Serial.print(wp.direction); Serial.print(" ");
     
     Serial.print("\n");
-  }
+
+    /*Serial.print("Yaw: "); Serial.print(ypr.yaw); Serial.print(" ");
+    Serial.print("Pitch: "); Serial.print(ypr.pitch); Serial.print(" ");
+    Serial.print("Roll: "); Serial.print(ypr.roll); Serial.print("\n");
+  } 
+  else {
+    Serial.print("Yaw: "); Serial.print(ypr.yaw); Serial.print(" ");
+    Serial.print("Pitch: "); Serial.print(ypr.pitch); Serial.print(" ");
+    Serial.print("Roll: "); Serial.print(ypr.roll); Serial.print("\n");
+  }*/
+  
 }
 
 
@@ -159,6 +183,45 @@ void calcWaypoint() {
   double own[3] = {gpsData.lat, gpsData.lng, gpsData.ellipsh};
   wp.distance = ecef.bih2length(own, target);
   wp.direction = ecef.bih2direction(own, target);
+}
+
+
+// Yaw, Pitch, Roll取得
+void getYPR() {
+  // MPU9250 ROWデータ取得
+  imu.getSensor();
+
+  // 時間取得&時間差分計算
+  uint32_t now = micros();
+  double dt = (double)(now - timer) / 1000000.0;
+  timer = now;
+
+  // Kalman (Yaw)
+  ypr.mathAngle = imu.compass2mathAngle();
+  if (ypr.yaw >= 180) ypr.yaw -= 360;
+  if ((ypr.mathAngle < -90 && ypr.yaw > 90) || (ypr.mathAngle > 90 && ypr.yaw < -90)) {
+    kalmanYaw.setAngle(ypr.mathAngle);
+    ypr.yaw = imu.compass; 
+  } else {
+    ypr.yaw = kalmanYaw.getAngle(ypr.mathAngle, imu.gyroZ, dt);
+    if (ypr.yaw < 0) ypr.yaw += 360;
+  }
+
+  // Kalman (Pitch)
+  if ((imu.pitch < -180 && ypr.pitch > 180) || (imu.pitch > 180 && ypr.pitch < -180)) {
+    kalmanPitch.setAngle(imu.pitch);
+    ypr.pitch = imu.pitch;
+  } else {
+    ypr.pitch = kalmanPitch.getAngle(imu.pitch, imu.gyroY, dt);
+  }
+
+  // Kalman (Roll)
+  if ((imu.roll < -90 && ypr.roll > 90) || (imu.roll > 90 && ypr.roll < -90)) {
+    kalmanRoll.setAngle(imu.roll);
+    ypr.roll = imu.roll;
+  } else {
+    ypr.roll = kalmanRoll.getAngle(imu.roll, imu.gyroX, dt);
+  }
 }
 
 
