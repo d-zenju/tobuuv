@@ -202,6 +202,67 @@ void MPU9250::getPitch(void) {
 }
 
 
+void MPU9250::getSensors(void) {
+  // Accel, Gyero, Temp
+  Wire.beginTransmission(_address);
+  Wire.write(MPU9250_ACCEL_XOUT_H);
+  Wire.endTransmission();
+
+  Wire.requestFrom((int)_address, 14);
+
+  int i = 0;
+  while(Wire.available()) {
+    agtm[i] = Wire.read();
+    i++;
+  }
+
+  // Magnet
+  Wire.beginTransmission(_mag_address);
+  Wire.write(MPU9250_MAG_ST1);
+  Wire.endTransmission();
+  
+  Wire.requestFrom((int)_mag_address, 8);
+
+  while(Wire.available()) {
+    agtm[i] = Wire.read();
+    i++;
+  }
+}
+
+
+void MPU9250::calcSensors(void) {
+  ax = (((int16_t)agtm[0]) << 8) | agtm[1];
+  ay = (((int16_t)agtm[2]) << 8) | agtm[3];
+  az = (((int16_t)agtm[4]) << 8) | agtm[5];
+  accelX = (double)ax * _accel_scale / 32768.0;
+  accelY = (double)ay * _accel_scale / 32768.0;
+  accelZ = (double)az * _accel_scale / 32768.0;
+  
+  temp = (((int16_t)agtm[6]) << 8) | agtm[7];
+  temperature = (double)temp / 333.87 + 21.0;
+  
+  gx = (((int16_t)agtm[8]) << 8) | agtm[9];
+  gy = (((int16_t)agtm[10]) << 8) | agtm[11];
+  gz = (((int16_t)agtm[12]) << 8) | agtm[13];
+  gyroX = (double)gx * _gyro_scale / 32768.0;
+  gyroY = (double)gy * _gyro_scale / 32768.0;
+  gyroZ = (double)gz * _gyro_scale / 32768.0;
+
+  drdy = agtm[14];
+  mx = (((int16_t)agtm[16]) << 8) | agtm[15];
+  my = (((int16_t)agtm[18]) << 8) | agtm[17];
+  mz = (((int16_t)agtm[20]) << 8) | agtm[19];
+  hofl = agtm[21];
+  magX = (double)mx / _mag_scale * 4912.0 - offsetMagX;
+  magY = (double)my / _mag_scale * 4912.0 - offsetMagY;
+  magZ = (double)mz / _mag_scale * 4912.0 - offsetMagZ;
+
+  getRoll();
+  getPitch();
+  getCompass();
+}
+
+
 double MPU9250::compass2mathAngle(void) {
   double ma = compass;
   if (compass >= 180) ma -= 360;

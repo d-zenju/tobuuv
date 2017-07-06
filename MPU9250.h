@@ -4,17 +4,17 @@
 #include <math.h>
 
 // MPU9250 Acceleration, Gyroscope Slave Address (AD0=H: 0x69)
-#define MPU9250_SLAVE_ADDRESS       0x68
+#define MPU9250_SLAVE_ADDRESS           0x68
 
 // MPU9250 Magnet Slave Address
-#define MPU9250_MAGNET_ADDRESS      0x0C
+#define MPU9250_MAGNET_ADDRESS          0x0C
 
 // MPU9250 Acceleration, Gyroscope Who Am I
-#define MPU9250_WAI_ADDRESS         0x75
+#define MPU9250_WAI_ADDRESS             0x75
 
 // MPU9250 Acceleration, Gyroscope initialize
-#define MPU9250_PWR_MGMT_1          0x6B
-#define MPU9250_INT_PIN_CFG         0x37
+#define MPU9250_PWR_MGMT_1              0x6B
+#define MPU9250_INT_PIN_CFG             0x37
 
 // MPU9250 Acceleration Address
 #define MPU9250_ACCEL_XOUT_H            0x3B
@@ -65,6 +65,9 @@ class MPU9250 {
     void getRoll(void);
     void getPitch(void);
 
+    void getSensors(void);
+    void calcSensors(void);
+
     double compass2mathAngle(void);
 
     uint8_t gyroConfig(void);
@@ -74,6 +77,10 @@ class MPU9250 {
     void setOffsetMagnet(double offsetX, double offsetY, double offsetZ);
     void calibrateAcceleration(void);
     void setOffsetAcceleration(double offsetX, double offsetY, double offsetZ);
+
+    int16_t getAccelerationX(void);
+    int16_t getAccelerationY(void);
+    int16_t getAccelerationZ(void);
     
     int16_t ax;
     int16_t ay;
@@ -123,9 +130,7 @@ class MPU9250 {
     uint8_t readMagRegister(const uint8_t register_addr);
     void writeRegister(const uint8_t register_addr, const uint8_t value);
     void writeMagRegister(const uint8_t register_addr, const uint8_t value);
-    int16_t getAccelerationX(void);
-    int16_t getAccelerationY(void);
-    int16_t getAccelerationZ(void);
+
     int16_t getTemperature(void);
     int16_t getGyroscopeX(void);
     int16_t getGyroscopeY(void);
@@ -149,6 +154,9 @@ class MPU9250 {
     uint8_t mc;
 
     double root;
+
+    // Accel, Gyro, Temp
+    uint8_t agtm[22];
     
     //double GyroMeasError = M_PI * (40.0 / 180.0);   // gyroscope measurement error in rads/s (start at 40 deg/s)
     //double beta = sqrt(3.0 / 4.0) * GyroMeasError;  // compute beta
