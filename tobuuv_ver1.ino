@@ -147,7 +147,7 @@ void setup() {
 }
 
 
-char c;
+char *c;
 
 void loop() {
   //getGPS();
